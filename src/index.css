@@ -1,0 +1,643 @@
+/* ==========================================================================
+   PocketFlow Design System
+   Governed by Global-Design-Rules.md & UI DESIGN GUIDELINES.md:
+   - Intentional typography, restrained geometry (4-8px radius).
+   - High contrast, purposeful functional colors (no purple/blue SaaS gradients).
+   - Tabular numerals for financial amounts.
+   - Zero glassmorphism, zero floating blobs.
+   ========================================================================== */
+
+:root {
+  /* Color Palette - Light Mode */
+  --bg-canvas: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --bg-sunken: #e2e8f0;
+  
+  --border-subtle: #e2e8f0;
+  --border-default: #cbd5e1;
+  --border-focus: #0f766e;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-on-dark: #f8fafc;
+
+  /* Functional Financial Semantics */
+  --income-color: #15803d;
+  --income-bg: #f0fdf4;
+  --income-border: #bbf7d0;
+
+  --expense-color: #b91c1c;
+  --expense-bg: #fef2f2;
+  --expense-border: #fecaca;
+
+  --warning-color: #b45309;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+
+  --accent-brand: #0f766e;
+  --accent-brand-hover: #115e59;
+  --accent-brand-subtle: #ccfbf1;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Shadows (Subtle, purposeful) */
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 2px 4px -1px rgba(15, 23, 42, 0.08);
+  --shadow-modal: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+
+  /* Layout dimensions */
+  --sidebar-width: 240px;
+}
+
+[data-theme='dark'] {
+  --bg-canvas: #090d16;
+  --bg-surface: #0f172a;
+  --bg-subtle: #1e293b;
+  --bg-sunken: #020617;
+
+  --border-subtle: #1e293b;
+  --border-default: #334155;
+  --border-focus: #14b8a6;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  --income-color: #4ade80;
+  --income-bg: #052e16;
+  --income-border: #14532d;
+
+  --expense-color: #f87171;
+  --expense-bg: #450a0a;
+  --expense-border: #7f1d1d;
+
+  --warning-color: #fbbf24;
+  --warning-bg: #451a03;
+  --warning-border: #78350f;
+
+  --accent-brand: #14b8a6;
+  --accent-brand-hover: #2dd4bf;
+  --accent-brand-subtle: #134e4a;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 6px -1px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 12px 30px 0 rgba(0, 0, 0, 0.7);
+}
+
+/* Base Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Tabular numbers for financial amounts */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* App Shell Layout */
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  background-color: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  padding: 20px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebar-logo {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.01em;
+}
+
+.sidebar-logo-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--accent-brand);
+}
+
+.sidebar-nav {
+  padding: 16px 8px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.nav-item:hover {
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background-color: var(--accent-brand-subtle);
+  color: var(--accent-brand);
+  font-weight: 600;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-bottom: 72px; /* space for mobile nav */
+}
+
+@media (min-width: 769px) {
+  .main-content {
+    padding-bottom: 24px;
+  }
+}
+
+.content-container {
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+/* Header & Top Bar */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+}
+
+.top-bar-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+/* Bottom Navigation on Mobile */
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+  
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--bg-surface);
+    border-top: 1px solid var(--border-subtle);
+    height: 60px;
+    z-index: 40;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 4px;
+  }
+
+  .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    padding: 6px;
+    cursor: pointer;
+    flex: 1;
+  }
+
+  .mobile-nav-item.active {
+    color: var(--accent-brand);
+    font-weight: 600;
+  }
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background-color: var(--accent-brand);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-brand-hover);
+}
+
+.btn-secondary {
+  background-color: var(--bg-surface);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-subtle);
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}
+
+.btn-danger {
+  background-color: var(--expense-color);
+  color: #ffffff;
+}
+
+.btn-danger:hover {
+  opacity: 0.9;
+}
+
+/* Forms */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.form-label {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.form-input, .form-select, .form-textarea {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2);
+}
+
+/* Grid & Layout Utilities */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Financial Stat Boxes (Restrained, purposeful, not bloated cards) */
+.stat-box {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.stat-sub {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* Tables / Lists */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 10px 12px;
+  background-color: var(--bg-subtle);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.data-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.data-table tr:hover td {
+  background-color: var(--bg-subtle);
+}
+
+/* Transaction List Item */
+.tx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+}
+
+.tx-row:hover {
+  background-color: var(--bg-subtle);
+}
+
+.tx-row-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tx-icon-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.tx-icon-badge.income {
+  background-color: var(--income-bg);
+  color: var(--income-color);
+}
+
+.tx-icon-badge.expense {
+  background-color: var(--expense-bg);
+  color: var(--expense-color);
+}
+
+.tx-icon-badge.transfer {
+  background-color: var(--bg-sunken);
+  color: var(--text-secondary);
+}
+
+.tx-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.tx-category {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+.tx-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.tx-amount {
+  font-weight: 700;
+  font-size: 0.98rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.tx-amount.income {
+  color: var(--income-color);
+}
+
+.tx-amount.expense {
+  color: var(--expense-color);
+}
+
+.tx-amount.transfer {
+  color: var(--text-primary);
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
+}
+
+.modal-content {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+/* Badges (Meaningful, not decorative) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.badge-usd {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.badge-khr {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.badge-warning {
+  background-color: var(--warning-bg);
+  color: var(--warning-color);
+  border: 1px solid var(--warning-border);
+}
+
+.badge-danger {
+  background-color: var(--expense-bg);
+  color: var(--expense-color);
+  border: 1px solid var(--expense-border);
+}
+
+/* Progress bar for budgets */
+.progress-bar-bg {
+  width: 100%;
+  height: 6px;
+  background-color: var(--bg-sunken);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.progress-bar-fill.normal {
+  background-color: var(--accent-brand);
+}
+
+.progress-bar-fill.warning {
+  background-color: var(--warning-color);
+}
+
+.progress-bar-fill.exceeded {
+  background-color: var(--expense-color);
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  opacity: 0.6;
+}
+
+.empty-state-text {
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+}
