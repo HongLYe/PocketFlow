@@ -325,6 +325,27 @@ body {
   opacity: 0.9;
 }
 
+.btn-ghost {
+  background-color: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.btn-lg {
+  padding: 10px 18px;
+  font-size: 1rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Forms */
 .form-group {
   display: flex;
