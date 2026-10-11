@@ -7,8 +7,7 @@ export const LandingNav: React.FC = () => {
   const { navigate } = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
-    return document.documentElement.dataset.theme === 'dark' ||
-      window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return document.documentElement.dataset.theme === 'dark';
   });
 
   // Sync theme

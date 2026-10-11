@@ -260,7 +260,7 @@ export class PocketFlowRepository implements IPocketFlowRepository {
     if (!s) {
       return {
         preferredCurrency: 'ALL',
-        theme: 'system',
+        theme: 'light',
         weekStartDay: 1,
         onboardingCompleted: true,
         exportVersion: 1,

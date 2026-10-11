@@ -126,7 +126,7 @@ const MainView: React.FC<MainViewProps> = (props) => {
               settings={
                 props.settingsRecord || {
                   preferredCurrency: 'ALL',
-                  theme: 'system',
+                  theme: 'light',
                   weekStartDay: 1,
                   onboardingCompleted: true,
                   exportVersion: 1,
@@ -185,7 +185,10 @@ export const App: React.FC = () => {
 
   // Theme synchronization
   useEffect(() => {
-    if (!settingsRecord) return;
+    if (!settingsRecord) {
+      document.documentElement.dataset.theme = 'light';
+      return;
+    }
     const theme = settingsRecord.theme;
     if (theme === 'dark') {
       document.documentElement.dataset.theme = 'dark';
