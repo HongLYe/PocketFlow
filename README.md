@@ -61,6 +61,31 @@ npm run build
 
 ---
 
+## Vercel Deployment
+
+PocketFlow is configured for instant deployment on [Vercel](https://vercel.com) with preconfigured SPA routing, security headers, and asset caching via [vercel.json](file:///home/user/Documents/Project/PocketFlow/vercel.json).
+
+### Option 1: Vercel Dashboard (Git Integration)
+1. Push your repository to GitHub, GitLab, or Bitbucket.
+2. Go to [vercel.com](https://vercel.com) and click **Add New...** &rarr; **Project**.
+3. Import your PocketFlow repository.
+4. Settings are automatically detected from `vercel.json`:
+   - **Framework Preset**: Vite
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+5. Click **Deploy**.
+
+### Option 2: Vercel CLI
+```bash
+# Log in and deploy a preview
+npx vercel
+
+# Deploy directly to production
+npx vercel --prod
+```
+
+---
+
 ## Docker Deployment
 
 PocketFlow includes a production-grade multi-stage Docker build using `node:22-alpine` and `nginx:alpine`.
