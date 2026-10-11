@@ -35,9 +35,9 @@ export class PocketFlowDB extends Dexie {
 
     // Schema definition
     this.version(1).stores({
-      accounts: 'id, name, type, currency, isArchived',
+      accounts: 'id, name, type, currency, isArchived, createdAt',
       categories: 'id, name, kind, sortOrder, isArchived',
-      transactions: 'id, kind, accountId, toAccountId, categoryId, currency, occurredOn',
+      transactions: 'id, kind, accountId, toAccountId, categoryId, currency, occurredOn, createdAt',
       budgets: 'id, categoryId, month, currency, [categoryId+month+currency]',
       settings: 'id',
     });
@@ -46,7 +46,7 @@ export class PocketFlowDB extends Dexie {
   async seedDefaults(): Promise<void> {
     const catCount = await this.categories.count();
     if (catCount === 0) {
-      await this.categories.bulkAdd(
+      await this.categories.bulkPut(
         INITIAL_CATEGORIES.map((cat, idx) => ({
           ...cat,
           id: `cat-${idx + 1}`,
@@ -57,7 +57,7 @@ export class PocketFlowDB extends Dexie {
     const accCount = await this.accounts.count();
     if (accCount === 0) {
       const now = new Date().toISOString();
-      await this.accounts.bulkAdd([
+      await this.accounts.bulkPut([
         {
           id: 'acc-cash-usd',
           name: 'Cash (USD)',
@@ -81,7 +81,7 @@ export class PocketFlowDB extends Dexie {
 
     const settingsCount = await this.settings.count();
     if (settingsCount === 0) {
-      await this.settings.add({
+      await this.settings.put({
         id: 'global',
         preferredCurrency: 'ALL',
         theme: 'system',

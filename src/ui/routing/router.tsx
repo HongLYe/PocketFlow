@@ -2,10 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { RoutePath } from './routes';
 import { RouterContext, useRouter } from './useRouter';
 
+const LANDING_ANCHORS = new Set(['landing', 'features', 'preview', 'privacy', 'faq', 'how-it-works', 'getting-started']);
+
 function getPathFromHash(): string {
-  const hash = window.location.hash.slice(1);
-  if (!hash || hash === '') return '/';
-  return hash.startsWith('/') ? hash : `/${hash}`;
+  const rawHash = window.location.hash.slice(1);
+  if (!rawHash || rawHash === '') return '/';
+  const clean = rawHash.startsWith('/') ? rawHash.slice(1) : rawHash;
+  if (LANDING_ANCHORS.has(clean)) return '/';
+  return rawHash.startsWith('/') ? rawHash : `/${rawHash}`;
 }
 
 export const Router: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -13,7 +17,14 @@ export const Router: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const handleHashChange = () => {
-      setCurrentPath(getPathFromHash());
+      const newPath = getPathFromHash();
+      setCurrentPath(newPath);
+
+      const rawHash = window.location.hash.slice(1);
+      const clean = rawHash.startsWith('/') ? rawHash.slice(1) : rawHash;
+      if (!LANDING_ANCHORS.has(clean)) {
+        window.scrollTo(0, 0);
+      }
     };
 
     window.addEventListener('hashchange', handleHashChange);
@@ -24,6 +35,7 @@ export const Router: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     const normalized = to.startsWith('/') ? to : `/${to}`;
     window.location.hash = normalized;
     setCurrentPath(normalized);
+    window.scrollTo(0, 0);
   }, []);
 
   return (
@@ -32,9 +44,6 @@ export const Router: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     </RouterContext.Provider>
   );
 };
-
-export { useRouter };
-
 interface RouteProps {
   path: RoutePath | string;
   children: React.ReactNode;

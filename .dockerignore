@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.gitignore
+.agents
+tests
+coverage
+*.log
+.DS_Store
+.env
+.env.*
+.env.local
+.env.*.local
+screenshots

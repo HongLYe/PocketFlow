@@ -3,7 +3,9 @@
  */
 
 export const ROUTES = {
-  DASHBOARD: '/',
+  LANDING: '/',
+  DASHBOARD: '/app',
+  ACCOUNTS: '/accounts',
   TRANSACTIONS: '/transactions',
   BUDGETS: '/budgets',
   REPORTS: '/reports',
@@ -11,3 +13,4 @@ export const ROUTES = {
 } as const;
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];
+

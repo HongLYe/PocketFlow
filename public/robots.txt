@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /$
+Disallow: /app
+Disallow: /accounts
+Disallow: /transactions
+Disallow: /budgets
+Disallow: /reports
+Disallow: /settings

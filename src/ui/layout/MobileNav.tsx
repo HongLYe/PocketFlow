@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   LayoutDashboard,
+  Wallet,
   Receipt,
   PiggyBank,
   BarChart3,
@@ -12,7 +13,8 @@ import { ROUTES } from '../routing/routes';
 export const MobileNav: React.FC = () => {
   const navItems = [
     { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-    { to: ROUTES.TRANSACTIONS, label: 'Transactions', icon: Receipt },
+    { to: ROUTES.ACCOUNTS, label: 'Accounts', icon: Wallet },
+    { to: ROUTES.TRANSACTIONS, label: 'Txns', fullLabel: 'Transactions', icon: Receipt },
     { to: ROUTES.BUDGETS, label: 'Budgets', icon: PiggyBank },
     { to: ROUTES.REPORTS, label: 'Reports', icon: BarChart3 },
     { to: ROUTES.SETTINGS, label: 'Settings', icon: Settings },
@@ -27,8 +29,10 @@ export const MobileNav: React.FC = () => {
             key={item.to}
             to={item.to}
             className="mobile-nav-item"
+            title={item.fullLabel || item.label}
+            aria-label={item.fullLabel || item.label}
           >
-            <IconComponent size={20} />
+            <IconComponent size={18} />
             <span>{item.label}</span>
           </Link>
         );

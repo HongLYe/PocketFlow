@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { Download, Upload, Moon, Sun, Monitor, Plus } from 'lucide-react';
+import {
+  Download,
+  Upload,
+  Moon,
+  Sun,
+  Monitor,
+  Plus,
+  ShieldCheck,
+  Archive,
+} from 'lucide-react';
 import type { AppSettings, Category } from '../../domain/models/types';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
@@ -8,6 +17,9 @@ import { Select } from '../components/Select';
 import { Alert } from '../components/Alert';
 import { Badge } from '../components/Badge';
 import { Icon } from '../components/Icon';
+import { Link } from '../routing/router';
+import { ROUTES } from '../routing/routes';
+import { APP_VERSION } from '../../config/version';
 
 export interface SettingsPageProps {
   settings: AppSettings;
@@ -17,6 +29,8 @@ export interface SettingsPageProps {
   onImportBackup: (jsonString: string) => Promise<{ success: boolean; error?: string }>;
   onExportCSV: () => Promise<void>;
   onAddCategory: (category: Category) => Promise<void>;
+  onArchiveCategory?: (id: string) => Promise<void>;
+  onUnarchiveCategory?: (id: string) => Promise<void>;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({
@@ -27,18 +41,29 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   onImportBackup,
   onExportCSV,
   onAddCategory,
+  onArchiveCategory,
+  onUnarchiveCategory,
 }) => {
-  const [importStatus, setImportStatus] = useState<{ success?: boolean; message?: string } | null>(null);
+  const [importStatus, setImportStatus] = useState<{ success?: boolean; message?: string } | null>(
+    null
+  );
   const [newCatName, setNewCatName] = useState('');
   const [newCatKind, setNewCatKind] = useState<'income' | 'expense'>('expense');
   const [newCatIcon, setNewCatIcon] = useState('Tag');
   const [isAddingCat, setIsAddingCat] = useState(false);
 
+  const activeCategories = categories.filter((c) => !c.isArchived);
+  const archivedCategories = categories.filter((c) => c.isArchived);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!window.confirm('Restoring a backup will overwrite existing local data. Do you want to continue?')) {
+    const confirmed = window.confirm(
+      'WARNING: Restoring a backup completely replaces all current accounts, transactions, categories, budgets, and settings with the contents of this file.\n\nExisting local data will be replaced. Do you wish to continue?'
+    );
+
+    if (!confirmed) {
       e.target.value = '';
       return;
     }
@@ -52,12 +77,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       if (result.success) {
         setImportStatus({
           success: true,
-          message: 'Backup restored successfully! All local data is verified and synchronized.',
+          message:
+            'Backup restored successfully! All local database tables have been verified and updated.',
         });
       } else {
         setImportStatus({
           success: false,
-          message: `Restore failed: ${result.error || 'Corrupted or incompatible file format'}`,
+          message: `Restore failed: ${result.error || 'Corrupted, invalid, or unsupported backup format. Existing data remains untouched.'}`,
         });
       }
     };
@@ -73,36 +99,68 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       id: `cat-custom-${Date.now()}`,
       name: newCatName.trim(),
       kind: newCatKind,
-      icon: newCatIcon || 'Tag',
+      icon: newCatIcon.trim() || 'Tag',
       sortOrder: categories.length + 1,
       isArchived: false,
     };
 
-    await onAddCategory(newCategory);
-    setNewCatName('');
-    setIsAddingCat(false);
+    try {
+      await onAddCategory(newCategory);
+      setNewCatName('');
+      setIsAddingCat(false);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to add category');
+    }
   };
 
+  const currencies: { value: AppSettings['preferredCurrency']; label: string }[] = [
+    { value: 'ALL', label: 'All Currencies (USD & KHR)' },
+    { value: 'USD', label: 'US Dollar ($)' },
+    { value: 'KHR', label: 'Cambodian Riel (៛)' },
+  ];
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 760 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <PageHeader
-        title="Settings & Data Management"
-        description="Local storage, theme appearance, categories, and offline backup export"
+        eyebrow="PREFERENCES & DATA MANAGEMENT"
+        title="Settings"
+        description="Display preferences, backup & restore, and category management"
       />
 
       {importStatus && (
         <Alert
           variant={importStatus.success ? 'success' : 'error'}
-          title={importStatus.success ? 'Backup Restored' : 'Restore Error'}
           onClose={() => setImportStatus(null)}
         >
           {importStatus.message}
         </Alert>
       )}
 
-      {/* Theme Appearance Box */}
-      <div className="stat-box" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600 }}>Display Theme</h2>
+      {/* Preferred Display Currency */}
+      <div className="surface-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div>
+          <h2 style={{ fontSize: '0.94rem', fontWeight: 600 }}>Preferred Display Currency</h2>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
+            A display preference for which records to show first. Does not convert or modify monetary amounts.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {currencies.map((c) => (
+            <Button
+              key={c.value}
+              variant={settings.preferredCurrency === c.value ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => onUpdateSettings({ preferredCurrency: c.value })}
+            >
+              {c.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Theme Appearance */}
+      <div className="surface-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <h2 style={{ fontSize: '0.94rem', fontWeight: 600 }}>Display Theme</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           {(['light', 'dark', 'system'] as const).map((t) => (
             <Button
@@ -111,7 +169,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               size="sm"
               onClick={() => onUpdateSettings({ theme: t })}
               leftIcon={
-                t === 'light' ? <Sun size={14} /> : t === 'dark' ? <Moon size={14} /> : <Monitor size={14} />
+                t === 'light' ? (
+                  <Sun size={14} />
+                ) : t === 'dark' ? (
+                  <Moon size={14} />
+                ) : (
+                  <Monitor size={14} />
+                )
               }
               style={{ textTransform: 'capitalize' }}
             >
@@ -122,28 +186,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
       </div>
 
       {/* Backup and Restore Box */}
-      <div className="stat-box" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="surface-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600 }}>Local-First Backup & Restore</h2>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
-            PocketFlow does not use external servers or cloud accounts. Save versioned JSON files to preserve your financial records across devices.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ShieldCheck size={16} color="var(--income-color)" />
+            <h2 style={{ fontSize: '0.94rem', fontWeight: 600 }}>Local-First Backup & Restore</h2>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 3 }}>
+            PocketFlow operates 100% locally in your browser. Backups are exported as standardized JSON files containing your accounts, transactions, and categories.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Button
-            variant="primary"
-            onClick={onExportBackup}
-            leftIcon={<Download size={15} />}
-          >
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Button variant="primary" size="sm" onClick={onExportBackup} leftIcon={<Download size={14} />}>
             Export Backup (JSON)
           </Button>
 
           <label
-            className="btn btn-secondary"
-            style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            className="btn btn-secondary btn-sm"
+            style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            <Upload size={15} /> Restore Backup (JSON)
+            <Upload size={14} /> Restore Backup (JSON)
             <input
               type="file"
               accept=".json"
@@ -152,30 +215,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             />
           </label>
 
-          <Button
-            variant="secondary"
-            onClick={onExportCSV}
-            leftIcon={<Download size={15} />}
-          >
+          <Button variant="secondary" size="sm" onClick={onExportCSV} leftIcon={<Download size={14} />}>
             Export Transactions (CSV)
           </Button>
         </div>
       </div>
 
       {/* Categories Box */}
-      <div className="stat-box" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="surface-card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600 }}>Categories</h2>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              {categories.length} income and expense categories
+            <h2 style={{ fontSize: '0.94rem', fontWeight: 600 }}>Category Management</h2>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
+              {activeCategories.length} active categories ({archivedCategories.length} archived)
             </p>
           </div>
           <Button
             variant="secondary"
             size="sm"
             onClick={() => setIsAddingCat(!isAddingCat)}
-            leftIcon={<Plus size={14} />}
+            leftIcon={<Plus size={13} />}
           >
             {isAddingCat ? 'Cancel' : 'Add Category'}
           </Button>
@@ -233,27 +292,154 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             borderRadius: 'var(--radius-sm)',
           }}
         >
-          {categories.map((c) => (
+          {activeCategories.map((c) => (
             <div
               key={c.id}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '8px 12px',
+                padding: '7px 12px',
                 borderBottom: '1px solid var(--border-subtle)',
-                fontSize: '0.85rem',
+                fontSize: '0.84rem',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Icon name={c.icon} size={15} />
+                <Icon name={c.icon} size={14} />
                 <span>{c.name}</span>
               </div>
-              <Badge variant={c.kind === 'income' ? 'success' : 'neutral'}>
-                {c.kind}
-              </Badge>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Badge variant={c.kind === 'income' ? 'success' : 'neutral'}>{c.kind}</Badge>
+                {onArchiveCategory && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    style={{ padding: '2px 5px', fontSize: '0.74rem', color: 'var(--text-muted)' }}
+                    onClick={async () => {
+                      if (window.confirm(`Archive category "${c.name}"?`)) {
+                        await onArchiveCategory(c.id);
+                      }
+                    }}
+                    title="Archive category"
+                  >
+                    <Archive size={12} />
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
+        </div>
+
+        {archivedCategories.length > 0 && (
+          <div>
+            <div
+              style={{
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                color: 'var(--text-muted)',
+                marginBottom: 6,
+              }}
+            >
+              Archived Categories ({archivedCategories.length})
+            </div>
+            <div
+              style={{
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--bg-subtle)',
+              }}
+            >
+              {archivedCategories.map((c) => (
+                <div
+                  key={c.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '6px 12px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    fontSize: '0.8rem',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icon name={c.icon} size={13} />
+                    <span>{c.name}</span>
+                  </div>
+                  {onUnarchiveCategory && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                      onClick={() => onUnarchiveCategory(c.id)}
+                    >
+                      Unarchive
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Application Information Box */}
+      <div className="surface-card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <img
+              src="/App icon only.png"
+              alt="PocketFlow Logo"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: '28%',
+                objectFit: 'contain',
+              }}
+            />
+            <div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>PocketFlow</div>
+              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Local money tracker (USD & KHR)</div>
+            </div>
+          </div>
+          <span
+            style={{
+              fontSize: '0.74rem',
+              color: 'var(--text-secondary)',
+              fontFamily: 'monospace',
+              padding: '3px 10px',
+              backgroundColor: 'var(--color-canvas-soft)',
+              borderRadius: '9999px',
+              border: '1px solid var(--color-hairline)',
+              fontWeight: 600,
+            }}
+          >
+            {APP_VERSION}
+          </span>
+        </div>
+        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div>
+            <strong>Architecture:</strong> Local-First Single Page Application (IndexedDB via Dexie)
+          </div>
+          <div>
+            <strong>Currency Engine:</strong> Dual-currency isolation (USD cents & KHR whole riel, exact integer arithmetic)
+          </div>
+          <div>
+            <strong>Privacy:</strong> All financial data remains in browser local storage.
+          </div>
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-subtle)' }}>
+            <Link
+              to={ROUTES.LANDING}
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--accent-brand)',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
+              ← View Public Landing Page & Features
+            </Link>
+          </div>
         </div>
       </div>
     </div>

@@ -15,6 +15,11 @@ export const AppShell: React.FC<AppShellProps> = ({
 }) => {
   return (
     <div className="app-layout">
+      {/* Keyboard Accessibility: Skip to Main Content */}
+      <a href="#main-content" className="skip-to-content">
+        Skip to main content
+      </a>
+
       {/* Desktop Navigation Sidebar */}
       <Sidebar onNewTransaction={onNewTransaction} />
 

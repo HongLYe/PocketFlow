@@ -4,18 +4,33 @@
 import { db } from './db';
 import type { Account, Category, Transaction, Budget, AppSettings } from '../domain/models/types';
 import type { BackupData } from '../domain/validation/schemas';
-import { BackupDataSchema, TransactionSchema } from '../domain/validation/schemas';
+import {
+  BackupDataSchema,
+  TransactionSchema,
+  AccountSchema,
+  CategorySchema,
+  BudgetSchema,
+} from '../domain/validation/schemas';
 import { formatMoney } from '../domain/money/money';
 
 export interface IPocketFlowRepository {
+  init(): Promise<void>;
+
   getAccounts(): Promise<Account[]>;
+  getAccount(id: string): Promise<Account | undefined>;
   saveAccount(account: Account): Promise<void>;
   archiveAccount(id: string): Promise<void>;
+  unarchiveAccount(id: string): Promise<void>;
+  deleteAccount(id: string): Promise<void>;
 
   getCategories(): Promise<Category[]>;
+  getCategory(id: string): Promise<Category | undefined>;
   saveCategory(category: Category): Promise<void>;
+  archiveCategory(id: string): Promise<void>;
+  unarchiveCategory(id: string): Promise<void>;
 
   getTransactions(): Promise<Transaction[]>;
+  getTransaction(id: string): Promise<Transaction | undefined>;
   saveTransaction(tx: Transaction): Promise<void>;
   deleteTransaction(id: string): Promise<void>;
 
@@ -31,6 +46,18 @@ export interface IPocketFlowRepository {
   exportTransactionsCSV(): Promise<string>;
 }
 
+/**
+ * Escapes a single CSV field value according to RFC 4180 standards.
+ */
+export function escapeCsvField(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 export class PocketFlowRepository implements IPocketFlowRepository {
   async init(): Promise<void> {
     await db.seedDefaults();
@@ -40,8 +67,31 @@ export class PocketFlowRepository implements IPocketFlowRepository {
     return await db.accounts.toArray();
   }
 
+  async getAccount(id: string): Promise<Account | undefined> {
+    return await db.accounts.get(id);
+  }
+
   async saveAccount(account: Account): Promise<void> {
-    await db.accounts.put(account);
+    AccountSchema.parse(account);
+
+    await db.transaction('rw', [db.accounts, db.transactions], async () => {
+      const existing = await db.accounts.get(account.id);
+      if (existing && existing.currency !== account.currency) {
+        const txCount = await db.transactions
+          .where('accountId')
+          .equals(account.id)
+          .or('toAccountId')
+          .equals(account.id)
+          .count();
+
+        if (txCount > 0) {
+          throw new Error(
+            `Cannot change currency for account "${account.name}" because it already has ${txCount} transaction(s). Historical currency integrity must be preserved.`
+          );
+        }
+      }
+      await db.accounts.put(account);
+    });
   }
 
   async archiveAccount(id: string): Promise<void> {
@@ -51,40 +101,125 @@ export class PocketFlowRepository implements IPocketFlowRepository {
     }
   }
 
+  async unarchiveAccount(id: string): Promise<void> {
+    const acc = await db.accounts.get(id);
+    if (acc) {
+      await db.accounts.update(id, { isArchived: false });
+    }
+  }
+
+  async deleteAccount(id: string): Promise<void> {
+    await db.transaction('rw', [db.accounts, db.transactions], async () => {
+      const txCount = await db.transactions
+        .where('accountId')
+        .equals(id)
+        .or('toAccountId')
+        .equals(id)
+        .count();
+
+      if (txCount > 0) {
+        throw new Error(
+          'Cannot delete an account with existing transactions. Please archive the account instead to preserve financial history.'
+        );
+      }
+      await db.accounts.delete(id);
+    });
+  }
+
   async getCategories(): Promise<Category[]> {
     return await db.categories.orderBy('sortOrder').toArray();
   }
 
+  async getCategory(id: string): Promise<Category | undefined> {
+    return await db.categories.get(id);
+  }
+
   async saveCategory(category: Category): Promise<void> {
+    CategorySchema.parse(category);
     await db.categories.put(category);
+  }
+
+  async archiveCategory(id: string): Promise<void> {
+    const cat = await db.categories.get(id);
+    if (cat) {
+      await db.categories.update(id, { isArchived: true });
+    }
+  }
+
+  async unarchiveCategory(id: string): Promise<void> {
+    const cat = await db.categories.get(id);
+    if (cat) {
+      await db.categories.update(id, { isArchived: false });
+    }
   }
 
   async getTransactions(): Promise<Transaction[]> {
     const list = await db.transactions.toArray();
-    return list.sort((a, b) => b.occurredOn.localeCompare(a.occurredOn) || b.createdAt.localeCompare(a.createdAt));
+    return list.sort(
+      (a, b) => b.occurredOn.localeCompare(a.occurredOn) || b.createdAt.localeCompare(a.createdAt)
+    );
+  }
+
+  async getTransaction(id: string): Promise<Transaction | undefined> {
+    return await db.transactions.get(id);
   }
 
   async saveTransaction(tx: Transaction): Promise<void> {
     TransactionSchema.parse(tx);
 
-    if (tx.kind === 'transfer') {
+    await db.transaction('rw', [db.transactions, db.accounts, db.categories], async () => {
       const source = await db.accounts.get(tx.accountId);
-      const target = tx.toAccountId ? await db.accounts.get(tx.toAccountId) : undefined;
-
-      if (!source || !target) {
-        throw new Error('Both source and destination accounts must exist for a transfer.');
+      if (!source) {
+        throw new Error(`Source account with ID "${tx.accountId}" does not exist.`);
       }
-      if (source.currency !== target.currency) {
+
+      if (source.currency !== tx.currency) {
         throw new Error(
-          `Transfers are only supported between accounts with the same currency. Source: ${source.currency}, Target: ${target.currency}.`
+          `Transaction currency (${tx.currency}) does not match source account currency (${source.currency}).`
         );
       }
-      if (source.id === target.id) {
-        throw new Error('Transfer destination must be different from source account.');
-      }
-    }
 
-    await db.transactions.put(tx);
+      if (tx.kind === 'transfer') {
+        if (!tx.toAccountId) {
+          throw new Error('Transfers require a destination account.');
+        }
+        if (tx.accountId === tx.toAccountId) {
+          throw new Error('Transfer destination must be different from source account.');
+        }
+
+        const target = await db.accounts.get(tx.toAccountId);
+        if (!target) {
+          throw new Error(`Destination account with ID "${tx.toAccountId}" does not exist.`);
+        }
+
+        if (source.currency !== target.currency) {
+          throw new Error(
+            `Transfers are only supported between accounts with the same currency. Source: ${source.currency}, Target: ${target.currency}.`
+          );
+        }
+
+        if (tx.categoryId) {
+          throw new Error('Transfers cannot have a category assigned.');
+        }
+      } else {
+        if (!tx.categoryId) {
+          throw new Error(`Category is required for ${tx.kind} transactions.`);
+        }
+
+        const category = await db.categories.get(tx.categoryId);
+        if (!category) {
+          throw new Error(`Category with ID "${tx.categoryId}" does not exist.`);
+        }
+
+        if (category.kind !== tx.kind) {
+          throw new Error(
+            `Category "${category.name}" (${category.kind}) does not match transaction type (${tx.kind}).`
+          );
+        }
+      }
+
+      await db.transactions.put(tx);
+    });
   }
 
   async deleteTransaction(id: string): Promise<void> {
@@ -99,6 +234,20 @@ export class PocketFlowRepository implements IPocketFlowRepository {
   }
 
   async saveBudget(budget: Budget): Promise<void> {
+    BudgetSchema.parse(budget);
+
+    // Prevent duplicate budgets for the same category, month, and currency
+    const existing = await db.budgets
+      .where('[categoryId+month+currency]')
+      .equals([budget.categoryId, budget.month, budget.currency])
+      .first();
+
+    if (existing && existing.id !== budget.id) {
+      throw new Error(
+        `A budget for this category in ${budget.month} (${budget.currency}) already exists.`
+      );
+    }
+
     await db.budgets.put(budget);
   }
 
@@ -155,21 +304,25 @@ export class PocketFlowRepository implements IPocketFlowRepository {
       const parsed = JSON.parse(jsonString);
       const validated = BackupDataSchema.parse(parsed);
 
-      await db.transaction('rw', [db.accounts, db.categories, db.transactions, db.budgets, db.settings], async () => {
-        await db.accounts.clear();
-        await db.categories.clear();
-        await db.transactions.clear();
-        await db.budgets.clear();
-        await db.settings.clear();
+      await db.transaction(
+        'rw',
+        [db.accounts, db.categories, db.transactions, db.budgets, db.settings],
+        async () => {
+          await db.accounts.clear();
+          await db.categories.clear();
+          await db.transactions.clear();
+          await db.budgets.clear();
+          await db.settings.clear();
 
-        await db.accounts.bulkAdd(validated.accounts);
-        await db.categories.bulkAdd(validated.categories);
-        await db.transactions.bulkAdd(validated.transactions);
-        await db.budgets.bulkAdd(validated.budgets);
-        if (validated.settings) {
-          await db.settings.put({ ...validated.settings, id: 'global' });
+          await db.accounts.bulkAdd(validated.accounts);
+          await db.categories.bulkAdd(validated.categories);
+          await db.transactions.bulkAdd(validated.transactions);
+          await db.budgets.bulkAdd(validated.budgets);
+          if (validated.settings) {
+            await db.settings.put({ ...validated.settings, id: 'global' });
+          }
         }
-      });
+      );
 
       return { success: true };
     } catch (err: unknown) {
@@ -186,16 +339,25 @@ export class PocketFlowRepository implements IPocketFlowRepository {
     const accMap = new Map(accounts.map((a) => [a.id, a.name]));
     const catMap = new Map(categories.map((c) => [c.id, c.name]));
 
-    const header = ['Date', 'Type', 'Account', 'Destination Account', 'Category', 'Amount', 'Currency', 'Note'];
+    const header = [
+      'Date',
+      'Type',
+      'Account',
+      'Destination Account',
+      'Category',
+      'Amount',
+      'Currency',
+      'Note',
+    ];
     const rows = transactions.map((t) => [
-      t.occurredOn,
-      t.kind,
-      `"${accMap.get(t.accountId) || t.accountId}"`,
-      t.toAccountId ? `"${accMap.get(t.toAccountId) || t.toAccountId}"` : '',
-      t.categoryId ? `"${catMap.get(t.categoryId) || t.categoryId}"` : '',
-      formatMoney(t.amountMinor, t.currency, { includeSymbol: false }),
-      t.currency,
-      `"${(t.note || '').replace(/"/g, '""')}"`,
+      escapeCsvField(t.occurredOn),
+      escapeCsvField(t.kind),
+      escapeCsvField(accMap.get(t.accountId) || t.accountId),
+      escapeCsvField(t.toAccountId ? accMap.get(t.toAccountId) || t.toAccountId : ''),
+      escapeCsvField(t.categoryId ? catMap.get(t.categoryId) || t.categoryId : ''),
+      escapeCsvField(formatMoney(t.amountMinor, t.currency, { includeSymbol: false })),
+      escapeCsvField(t.currency),
+      escapeCsvField(t.note || ''),
     ]);
 
     return [header.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -203,3 +365,4 @@ export class PocketFlowRepository implements IPocketFlowRepository {
 }
 
 export const repository = new PocketFlowRepository();
+

@@ -38,15 +38,17 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <PageHeader
+        eyebrow="SPENDING TARGETS"
         title="Budgets"
         description={`Spending limits and progress for ${currentMonth}`}
         actions={
           <Button
             variant="primary"
+            size="sm"
             onClick={() => onOpenBudgetModal()}
-            leftIcon={<Plus size={15} />}
+            leftIcon={<Plus size={14} />}
           >
             Set Budget
           </Button>
@@ -55,21 +57,19 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
 
       {/* Control Toolbar */}
       <div
+        className="surface-card"
         style={{
           display: 'flex',
           gap: 12,
           alignItems: 'center',
           flexWrap: 'wrap',
-          backgroundColor: 'var(--bg-surface)',
-          padding: 12,
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--border-subtle)',
+          padding: '10px 14px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <label
             htmlFor="budget-month-input"
-            style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-secondary)' }}
+            style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}
           >
             Month:
           </label>
@@ -77,16 +77,16 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
             id="budget-month-input"
             type="month"
             className="form-input"
-            style={{ width: 'auto', padding: '5px 10px' }}
+            style={{ width: 'auto', padding: '5px 8px', fontSize: '0.84rem' }}
             value={currentMonth}
             onChange={(e) => onChangeMonth(e.target.value)}
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <label
             htmlFor="budget-currency-select"
-            style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-secondary)' }}
+            style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}
           >
             Currency:
           </label>
@@ -106,7 +106,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
       {/* Budgets Grid or Honest Empty State */}
       {filteredProgress.length === 0 ? (
         <EmptyState
-          icon={<PiggyBank size={36} />}
+          icon={<PiggyBank size={32} />}
           title={`No budget limits set for ${currentMonth}`}
           description="Create monthly limits for expense categories to keep spending on track in USD or KHR."
           action={
@@ -126,11 +126,12 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
             return (
               <div
                 key={p.budget.id}
-                className="stat-box"
+                className="surface-card"
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
+                  padding: '14px 16px',
                   borderColor:
                     p.status === 'exceeded'
                       ? 'var(--expense-border)'
@@ -141,10 +142,10 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {p.category && <Icon name={p.category.icon} size={16} />}
-                    <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>
+                    {p.category && <Icon name={p.category.icon} size={15} />}
+                    <h2 style={{ fontSize: '0.92rem', fontWeight: 600 }}>
                       {p.category?.name || 'Category'}
-                    </h3>
+                    </h2>
                   </div>
                   <Badge variant={p.currency === 'USD' ? 'usd' : 'khr'}>
                     {p.currency}
@@ -152,7 +153,14 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                 </div>
 
                 {/* Progress bar */}
-                <div className="progress-bar-bg">
+                <div
+                  className="progress-bar-bg"
+                  role="progressbar"
+                  aria-valuenow={p.percentageUsed}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${p.category?.name || 'Category'} budget: ${p.percentageUsed}% used`}
+                >
                   <div
                     className={`progress-bar-fill ${p.status}`}
                     style={{ width: `${Math.min(p.percentageUsed, 100)}%` }}
@@ -160,7 +168,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                 </div>
 
                 {/* Numbers */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
                   <span>
                     Spent: <strong className="tabular-nums">{formatMoney(p.spentMinor, p.currency)}</strong>
                   </span>
@@ -169,10 +177,10 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
                   <span
                     style={{
-                      fontSize: '0.8rem',
+                      fontSize: '0.78rem',
                       fontWeight: 600,
                       color: p.remainingMinor < 0 ? 'var(--expense-color)' : 'var(--text-secondary)',
                     }}
@@ -200,7 +208,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                     display: 'flex',
                     justifyContent: 'flex-end',
                     gap: 6,
-                    marginTop: 8,
+                    marginTop: 4,
                     paddingTop: 8,
                     borderTop: '1px solid var(--border-subtle)',
                   }}
@@ -209,12 +217,12 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                     variant="secondary"
                     size="sm"
                     onClick={() => onOpenBudgetModal(p.budget)}
-                    leftIcon={<Edit2 size={13} />}
+                    leftIcon={<Edit2 size={12} />}
                   >
                     Edit
                   </Button>
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
                     style={{ color: 'var(--expense-color)' }}
                     onClick={async () => {
@@ -222,7 +230,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                         await onDeleteBudget(p.budget.id);
                       }
                     }}
-                    leftIcon={<Trash2 size={13} />}
+                    leftIcon={<Trash2 size={12} />}
                   >
                     Delete
                   </Button>

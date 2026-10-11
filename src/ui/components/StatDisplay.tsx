@@ -19,7 +19,6 @@ export const StatDisplay: React.FC<StatDisplayProps> = ({
   currency,
   subtext,
   trend,
-  accentColor,
   showSign = false,
 }) => {
   const getTrendColor = () => {
@@ -29,13 +28,8 @@ export const StatDisplay: React.FC<StatDisplayProps> = ({
   };
 
   return (
-    <div
-      className="stat-box"
-      style={{
-        borderLeft: accentColor ? `4px solid ${accentColor}` : undefined,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="stat-box">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <span className="stat-label">{label}</span>
         <Badge variant={currency === 'USD' ? 'usd' : 'khr'}>{currency}</Badge>
       </div>

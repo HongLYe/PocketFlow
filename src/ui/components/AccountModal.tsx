@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useState } from 'react';
 import type { Account, AccountType } from '../../domain/models/types';
 import type { Currency } from '../../domain/money/money';
 import { parseToMinor, formatMoney } from '../../domain/money/money';
+import { Dialog } from './Dialog';
+import { Button } from './Button';
+import { Input } from './Input';
+import { Select } from './Select';
+import { Alert } from './Alert';
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -19,39 +23,29 @@ function getAccountIsoNow(): string {
   return new Date().toISOString();
 }
 
-export const AccountModal: React.FC<AccountModalProps> = ({
-  isOpen,
+interface AccountModalFormProps {
+  onClose: () => void;
+  onSave: (account: Account) => Promise<void>;
+  initialAccount?: Account | null;
+}
+
+const AccountModalForm: React.FC<AccountModalFormProps> = ({
   onClose,
   onSave,
   initialAccount,
 }) => {
-  const [name, setName] = useState('');
-  const [type, setType] = useState<AccountType>('bank');
-  const [currency, setCurrency] = useState<Currency>('USD');
-  const [openingBalanceStr, setOpeningBalanceStr] = useState('0');
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (initialAccount) {
-      setName(initialAccount.name);
-      setType(initialAccount.type);
-      setCurrency(initialAccount.currency);
-      setOpeningBalanceStr(
-        formatMoney(initialAccount.openingBalanceMinor, initialAccount.currency, {
+  const [name, setName] = useState(() => initialAccount?.name || '');
+  const [type, setType] = useState<AccountType>(() => initialAccount?.type || 'bank');
+  const [currency, setCurrency] = useState<Currency>(() => initialAccount?.currency || 'USD');
+  const [openingBalanceStr, setOpeningBalanceStr] = useState(() =>
+    initialAccount
+      ? formatMoney(initialAccount.openingBalanceMinor, initialAccount.currency, {
           includeSymbol: false,
         })
-      );
-    } else {
-      setName('');
-      setType('bank');
-      setCurrency('USD');
-      setOpeningBalanceStr('0');
-    }
-    setError(null);
-  }, [initialAccount, isOpen]);
-
-  if (!isOpen) return null;
+      : '0'
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,108 +86,97 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">{initialAccount ? 'Edit Account' : 'New Account'}</h2>
-          <button className="btn btn-secondary btn-sm" onClick={onClose} aria-label="Close modal">
-            <X size={18} />
-          </button>
-        </div>
+    <form onSubmit={handleSubmit}>
+      {error && (
+        <Alert variant="error" className="mb-4" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
-        {error && (
-          <div
-            style={{
-              padding: '10px 14px',
-              backgroundColor: 'var(--expense-bg)',
-              color: 'var(--expense-color)',
-              border: '1px solid var(--expense-border)',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: 16,
-              fontSize: '0.85rem',
-            }}
-          >
-            {error}
-          </div>
-        )}
+      <Input
+        label="Account Name"
+        id="acc-name"
+        placeholder="e.g. ABA Bank, Wing Wallet, Cash Wallet"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        required
+      />
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label" htmlFor="acc-name">
-              Account Name
-            </label>
-            <input
-              id="acc-name"
-              type="text"
-              className="form-input"
-              placeholder="e.g. ABA Bank, Wing Wallet, Cash Wallet"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-              required
-            />
-          </div>
+      <div className="grid-2">
+        <Select
+          label="Account Type"
+          id="acc-type"
+          value={type}
+          onChange={(e) => setType(e.target.value as AccountType)}
+          options={[
+            { value: 'cash', label: 'Cash Wallet' },
+            { value: 'bank', label: 'Bank Account' },
+            { value: 'ewallet', label: 'E-Wallet' },
+          ]}
+        />
 
-          <div className="grid-2">
-            <div className="form-group">
-              <label className="form-label" htmlFor="acc-type">
-                Account Type
-              </label>
-              <select
-                id="acc-type"
-                className="form-select"
-                value={type}
-                onChange={(e) => setType(e.target.value as AccountType)}
-              >
-                <option value="cash">Cash Wallet</option>
-                <option value="bank">Bank Account</option>
-                <option value="ewallet">E-Wallet</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="acc-currency">
-                Currency
-              </label>
-              <select
-                id="acc-currency"
-                className="form-select"
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value as Currency)}
-                disabled={!!initialAccount}
-              >
-                <option value="USD">USD ($)</option>
-                <option value="KHR">Cambodian Riel (៛)</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="acc-opening">
-              Opening Balance ({currency})
-            </label>
-            <input
-              id="acc-opening"
-              type="text"
-              inputMode="decimal"
-              className="form-input tabular-nums"
-              placeholder="0"
-              value={openingBalanceStr}
-              onChange={(e) => setOpeningBalanceStr(e.target.value)}
-              required
-            />
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? 'Saving...' : initialAccount ? 'Save Changes' : 'Create Account'}
-            </button>
-          </div>
-        </form>
+        <Select
+          label="Currency"
+          id="acc-currency"
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value as Currency)}
+          disabled={!!initialAccount}
+          options={[
+            { value: 'USD', label: 'USD ($)' },
+            { value: 'KHR', label: 'Cambodian Riel (៛)' },
+          ]}
+          helperText={
+            initialAccount ? 'Currency cannot be modified after account creation.' : undefined
+          }
+        />
       </div>
-    </div>
+
+      <Input
+        label={`Opening Balance (${currency})`}
+        id="acc-opening"
+        type="text"
+        inputMode="decimal"
+        className="tabular-nums"
+        placeholder="0"
+        value={openingBalanceStr}
+        onChange={(e) => setOpeningBalanceStr(e.target.value)}
+        required
+        helperText="Starting balance before any tracked transactions occurred."
+      />
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+        <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" size="sm" isLoading={submitting}>
+          {initialAccount ? 'Save Changes' : 'Create Account'}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+export const AccountModal: React.FC<AccountModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  initialAccount,
+}) => {
+  return (
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      title={initialAccount ? 'Edit Account' : 'New Account'}
+      description="Accounts represent your real-world wallets, bank accounts, or e-wallets"
+    >
+      {isOpen && (
+        <AccountModalForm
+          key={initialAccount?.id || 'new-account'}
+          onClose={onClose}
+          onSave={onSave}
+          initialAccount={initialAccount}
+        />
+      )}
+    </Dialog>
   );
 };

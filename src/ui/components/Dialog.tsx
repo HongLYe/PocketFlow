@@ -16,22 +16,68 @@ export const Dialog: React.FC<DialogProps> = ({
   title,
   description,
   children,
-  maxWidth = 520,
+  maxWidth = 480,
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  // Close on Escape key
+  // Focus management and keyboard accessibility (Escape & Tab trap)
   useEffect(() => {
     if (!isOpen) return;
 
+    const previousActiveElement = document.activeElement as HTMLElement | null;
+
+    // Auto-focus first focusable element inside the modal after mounting
+    const timer = setTimeout(() => {
+      if (dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length > 0) {
+          focusable[0].focus();
+        }
+      }
+    }, 20);
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
         onClose();
+        return;
+      }
+
+      // Tab trap
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusables = dialogRef.current.querySelectorAll<HTMLElement>(
+          'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusables.length === 0) return;
+
+        const firstElement = focusables[0];
+        const lastElement = focusables[focusables.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('keydown', handleKeyDown);
+      if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
+        previousActiveElement.focus();
+      }
+    };
   }, [isOpen, onClose]);
 
   // Prevent body scroll when modal is open
@@ -71,7 +117,7 @@ export const Dialog: React.FC<DialogProps> = ({
             {description && (
               <p
                 id="dialog-description"
-                style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}
+                style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}
               >
                 {description}
               </p>
@@ -79,12 +125,12 @@ export const Dialog: React.FC<DialogProps> = ({
           </div>
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
+            className="btn btn-ghost btn-sm"
             onClick={onClose}
             aria-label="Close dialog"
-            style={{ padding: 6 }}
+            style={{ padding: '4px 6px', color: 'var(--text-muted)' }}
           >
-            <X size={16} />
+            <X size={17} />
           </button>
         </div>
         <div>{children}</div>

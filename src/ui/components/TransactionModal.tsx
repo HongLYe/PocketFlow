@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useState } from 'react';
 import type { Account, Category, Transaction, TransactionKind } from '../../domain/models/types';
 import type { Currency } from '../../domain/money/money';
-import { parseToMinor, formatMoney } from '../../domain/money/money';
+import { parseToMinor, formatMoney, getLocalDateString } from '../../domain/money/money';
+import { Dialog } from './Dialog';
+import { Button } from './Button';
+import { Input } from './Input';
+import { Select } from './Select';
+import { Alert } from './Alert';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -21,69 +25,83 @@ function getIsoTimestamp(): string {
   return new Date().toISOString();
 }
 
-export const TransactionModal: React.FC<TransactionModalProps> = ({
-  isOpen,
+interface TransactionModalFormProps {
+  onClose: () => void;
+  onSave: (tx: Transaction) => Promise<void>;
+  accounts: Account[];
+  categories: Category[];
+  initialTransaction?: Transaction | null;
+}
+
+const TransactionModalForm: React.FC<TransactionModalFormProps> = ({
   onClose,
   onSave,
   accounts,
   categories,
   initialTransaction,
 }) => {
-  const [kind, setKind] = useState<TransactionKind>('expense');
-  const [amountStr, setAmountStr] = useState('');
-  const [accountId, setAccountId] = useState('');
-  const [toAccountId, setToAccountId] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [occurredOn, setOccurredOn] = useState(() => new Date().toISOString().split('T')[0]);
-  const [note, setNote] = useState('');
+  const [kind, setKind] = useState<TransactionKind>(() => initialTransaction?.kind || 'expense');
+  const [amountStr, setAmountStr] = useState(() =>
+    initialTransaction
+      ? formatMoney(initialTransaction.amountMinor, initialTransaction.currency, {
+          includeSymbol: false,
+        })
+      : ''
+  );
+
+  const activeAccounts = accounts.filter(
+    (a) => !a.isArchived || a.id === initialTransaction?.accountId || a.id === initialTransaction?.toAccountId
+  );
+
+  const [accountId, setAccountId] = useState(() => {
+    if (initialTransaction) return initialTransaction.accountId;
+    return activeAccounts[0]?.id || accounts[0]?.id || '';
+  });
+
+  const selectedAccount = accounts.find((a) => a.id === accountId);
+  const currency: Currency = selectedAccount ? selectedAccount.currency : 'USD';
+
+  const [toAccountId, setToAccountId] = useState(() => initialTransaction?.toAccountId || '');
+
+  const [categoryId, setCategoryId] = useState(() => {
+    if (initialTransaction?.categoryId) return initialTransaction.categoryId;
+    const initialKind = initialTransaction?.kind || 'expense';
+    const matchCat = categories.find((c) => c.kind === initialKind && !c.isArchived);
+    return matchCat?.id || '';
+  });
+
+  const [occurredOn, setOccurredOn] = useState(() => initialTransaction?.occurredOn || getLocalDateString());
+  const [note, setNote] = useState(() => initialTransaction?.note || '');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  const activeAccounts = accounts.filter((a) => !a.isArchived);
-  const selectedAccount = activeAccounts.find((a) => a.id === accountId);
-  const currency: Currency = selectedAccount ? selectedAccount.currency : 'USD';
 
   const transferEligibleAccounts = activeAccounts.filter(
     (a) => a.id !== accountId && a.currency === currency
   );
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    if (initialTransaction) {
-      setKind(initialTransaction.kind);
-      setAmountStr(
-        formatMoney(initialTransaction.amountMinor, initialTransaction.currency, {
-          includeSymbol: false,
-        })
-      );
-      setAccountId(initialTransaction.accountId);
-      setToAccountId(initialTransaction.toAccountId || '');
-      setCategoryId(initialTransaction.categoryId || '');
-      setOccurredOn(initialTransaction.occurredOn);
-      setNote(initialTransaction.note || '');
-    } else {
-      setKind('expense');
-      setAmountStr('');
-      setAccountId(activeAccounts[0]?.id || '');
-      setToAccountId('');
-      setOccurredOn(new Date().toISOString().split('T')[0]);
-      setNote('');
-      const firstExpenseCat = categories.find((c) => c.kind === 'expense');
-      setCategoryId(firstExpenseCat?.id || '');
-    }
-    setError(null);
-  }, [initialTransaction, isOpen, activeAccounts, categories]);
+  const availableCategories = categories.filter(
+    (c) => c.kind === kind && (!c.isArchived || c.id === initialTransaction?.categoryId)
+  );
 
   const handleKindChange = (newKind: TransactionKind) => {
     setKind(newKind);
+    setError(null);
     if (newKind !== 'transfer') {
-      const matchCat = categories.find((c) => c.kind === newKind);
-      if (matchCat) setCategoryId(matchCat.id);
+      setToAccountId('');
+      const matchCat = categories.find((c) => c.kind === newKind && !c.isArchived);
+      setCategoryId(matchCat ? matchCat.id : '');
+    } else {
+      setCategoryId('');
+      if (transferEligibleAccounts.length > 0) {
+        setToAccountId(transferEligibleAccounts[0].id);
+      }
     }
   };
 
-  if (!isOpen) return null;
+  const handleAccountChange = (newAccId: string) => {
+    setAccountId(newAccId);
+    setToAccountId('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,194 +166,159 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">
-            {initialTransaction ? 'Edit Transaction' : 'Record Transaction'}
-          </h2>
-          <button className="btn btn-secondary btn-sm" onClick={onClose} aria-label="Close modal">
-            <X size={18} />
-          </button>
-        </div>
+    <form onSubmit={handleSubmit}>
+      {error && (
+        <Alert variant="error" className="mb-4" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
-        {error && (
-          <div
-            style={{
-              padding: '10px 14px',
-              backgroundColor: 'var(--expense-bg)',
-              color: 'var(--expense-color)',
-              border: '1px solid var(--expense-border)',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: 16,
-              fontSize: '0.85rem',
-            }}
+      {/* Kind Selector Pills */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 4,
+          backgroundColor: 'var(--bg-subtle)',
+          padding: 4,
+          borderRadius: 'var(--radius-md)',
+          marginBottom: 16,
+        }}
+        role="group"
+        aria-label="Transaction type"
+      >
+        {(['expense', 'income', 'transfer'] as TransactionKind[]).map((k) => (
+          <Button
+            key={k}
+            type="button"
+            variant={kind === k ? 'primary' : 'ghost'}
+            size="sm"
+            style={{ flex: 1, textTransform: 'capitalize' }}
+            onClick={() => handleKindChange(k)}
           >
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div
-            style={{
-              display: 'flex',
-              gap: 4,
-              backgroundColor: 'var(--bg-subtle)',
-              padding: 4,
-              borderRadius: 'var(--radius-md)',
-              marginBottom: 16,
-            }}
-          >
-            {(['expense', 'income', 'transfer'] as TransactionKind[]).map((k) => (
-              <button
-                key={k}
-                type="button"
-                className={`btn btn-sm ${kind === k ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ flex: 1, textTransform: 'capitalize' }}
-                onClick={() => handleKindChange(k)}
-              >
-                {k}
-              </button>
-            ))}
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="tx-amount">
-              Amount ({currency})
-            </label>
-            <div style={{ position: 'relative' }}>
-              <span
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  fontWeight: 600,
-                  color: 'var(--text-muted)',
-                }}
-              >
-                {currency === 'USD' ? '$' : '៛'}
-              </span>
-              <input
-                id="tx-amount"
-                type="text"
-                inputMode="decimal"
-                className="form-input tabular-nums"
-                style={{ paddingLeft: 28, fontSize: '1.15rem', fontWeight: 600, width: '100%' }}
-                placeholder={currency === 'USD' ? '0.00' : '0'}
-                value={amountStr}
-                onChange={(e) => setAmountStr(e.target.value)}
-                autoFocus
-                required
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="tx-account">
-              {kind === 'transfer' ? 'From Account' : 'Account'}
-            </label>
-            <select
-              id="tx-account"
-              className="form-select"
-              value={accountId}
-              onChange={(e) => {
-                setAccountId(e.target.value);
-                setToAccountId('');
-              }}
-              required
-            >
-              {activeAccounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name} ({acc.currency})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {kind === 'transfer' && (
-            <div className="form-group">
-              <label className="form-label" htmlFor="tx-to-account">
-                To Account ({currency})
-              </label>
-              <select
-                id="tx-to-account"
-                className="form-select"
-                value={toAccountId}
-                onChange={(e) => setToAccountId(e.target.value)}
-                required
-              >
-                <option value="">Select destination account...</option>
-                {transferEligibleAccounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name} ({acc.currency})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {kind !== 'transfer' && (
-            <div className="form-group">
-              <label className="form-label" htmlFor="tx-category">
-                Category
-              </label>
-              <select
-                id="tx-category"
-                className="form-select"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                required
-              >
-                {categories
-                  .filter((c) => c.kind === kind && !c.isArchived)
-                  .map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          )}
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="tx-date">
-              Date
-            </label>
-            <input
-              id="tx-date"
-              type="date"
-              className="form-input"
-              value={occurredOn}
-              onChange={(e) => setOccurredOn(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="tx-note">
-              Note (Optional)
-            </label>
-            <input
-              id="tx-note"
-              type="text"
-              className="form-input"
-              placeholder="e.g. Lunch with team, monthly electric bill"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? 'Saving...' : initialTransaction ? 'Update' : 'Save Transaction'}
-            </button>
-          </div>
-        </form>
+            {k}
+          </Button>
+        ))}
       </div>
-    </div>
+
+      <Input
+        label={`Amount (${currency})`}
+        id="tx-amount"
+        type="text"
+        inputMode="decimal"
+        className="tabular-nums"
+        placeholder={currency === 'USD' ? '0.00' : '0'}
+        value={amountStr}
+        onChange={(e) => setAmountStr(e.target.value)}
+        leftAddon={currency === 'USD' ? '$' : '៛'}
+        autoFocus
+        required
+      />
+
+      <div className="grid-2">
+        <Select
+          label={kind === 'transfer' ? 'From Account' : 'Account'}
+          id="tx-account"
+          value={accountId}
+          onChange={(e) => handleAccountChange(e.target.value)}
+          options={activeAccounts.map((acc) => ({
+            value: acc.id,
+            label: `${acc.name} (${acc.currency})${acc.isArchived ? ' [Archived]' : ''}`,
+          }))}
+          required
+        />
+
+        {kind === 'transfer' ? (
+          <Select
+            label={`To Account (${currency})`}
+            id="tx-to-account"
+            value={toAccountId}
+            onChange={(e) => setToAccountId(e.target.value)}
+            options={[
+              { value: '', label: 'Select destination account...' },
+              ...transferEligibleAccounts.map((acc) => ({
+                value: acc.id,
+                label: `${acc.name} (${acc.currency})${acc.isArchived ? ' [Archived]' : ''}`,
+              })),
+            ]}
+            helperText={
+              transferEligibleAccounts.length === 0
+                ? `No other ${currency} accounts available for transfer.`
+                : undefined
+            }
+            required
+          />
+        ) : (
+          <Select
+            label="Category"
+            id="tx-category"
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            options={availableCategories.map((cat) => ({
+              value: cat.id,
+              label: `${cat.name}${cat.isArchived ? ' [Archived]' : ''}`,
+            }))}
+            required
+          />
+        )}
+      </div>
+
+      <div className="grid-2">
+        <Input
+          label="Date"
+          id="tx-date"
+          type="date"
+          value={occurredOn}
+          onChange={(e) => setOccurredOn(e.target.value)}
+          required
+        />
+
+        <Input
+          label="Note (Optional)"
+          id="tx-note"
+          type="text"
+          placeholder="e.g. Lunch with team, electricity bill"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+        <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" size="sm" isLoading={submitting}>
+          {initialTransaction ? 'Update Transaction' : 'Save Transaction'}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+export const TransactionModal: React.FC<TransactionModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  accounts,
+  categories,
+  initialTransaction,
+}) => {
+  return (
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      title={initialTransaction ? 'Edit Transaction' : 'Record Transaction'}
+      description="Financial transactions are strictly recorded in the selected account's currency."
+    >
+      {isOpen && (
+        <TransactionModalForm
+          key={initialTransaction?.id || 'new-tx'}
+          onClose={onClose}
+          onSave={onSave}
+          accounts={accounts}
+          categories={categories}
+          initialTransaction={initialTransaction}
+        />
+      )}
+    </Dialog>
   );
 };

@@ -42,12 +42,12 @@ export const TransactionSchema = z.object({
 }).refine(
   (data) => {
     if (data.kind === 'transfer') {
-      return !!data.toAccountId && data.toAccountId !== data.accountId;
+      return !!data.toAccountId && data.toAccountId !== data.accountId && !data.categoryId;
     }
     return true;
   },
   {
-    message: 'Transfers require a distinct destination account',
+    message: 'Transfers require a distinct destination account and no category',
     path: ['toAccountId'],
   }
 ).refine(
@@ -91,6 +91,35 @@ export const BackupDataSchema = z.object({
   transactions: z.array(TransactionSchema),
   budgets: z.array(BudgetSchema),
   settings: AppSettingsSchema.optional(),
-});
+}).refine(
+  (data) => {
+    const accMap = new Map(data.accounts.map((a) => [a.id, a]));
+    const catIds = new Set(data.categories.map((c) => c.id));
+
+    for (const tx of data.transactions) {
+      const source = accMap.get(tx.accountId);
+      if (!source) return false;
+      if (source.currency !== tx.currency) return false;
+
+      if (tx.kind === 'transfer') {
+        if (!tx.toAccountId) return false;
+        const target = accMap.get(tx.toAccountId);
+        if (!target) return false;
+        if (target.currency !== source.currency) return false;
+      } else {
+        if (!tx.categoryId || !catIds.has(tx.categoryId)) return false;
+      }
+    }
+
+    for (const bgt of data.budgets) {
+      if (!catIds.has(bgt.categoryId)) return false;
+    }
+
+    return true;
+  },
+  {
+    message: 'Backup data violates relational integrity (unmatched accounts, categories, or currency mismatch)',
+  }
+);
 
 export type BackupData = z.infer<typeof BackupDataSchema>;

@@ -90,4 +90,50 @@ describe('PocketFlow Validation & Backup Integrity', () => {
     };
     expect(TransactionSchema.safeParse(selfTransfer).success).toBe(false);
   });
+
+  it('rejects backup files that violate relational integrity', () => {
+    const backupWithBrokenForeignKey = {
+      version: 1,
+      exportedAt: '2026-10-10T20:00:00.000Z',
+      app: 'PocketFlow',
+      accounts: [
+        {
+          id: 'acc-1',
+          name: 'Main Cash',
+          type: 'cash',
+          currency: 'USD',
+          openingBalanceMinor: 5000,
+          isArchived: false,
+          createdAt: '2026-10-01T00:00:00.000Z',
+        },
+      ],
+      categories: [
+        {
+          id: 'cat-1',
+          name: 'Groceries',
+          kind: 'expense',
+          icon: 'ShoppingBag',
+          sortOrder: 1,
+          isArchived: false,
+        },
+      ],
+      transactions: [
+        {
+          id: 'tx-orphan',
+          kind: 'expense',
+          accountId: 'acc-nonexistent', // Does not exist in accounts!
+          categoryId: 'cat-1',
+          amountMinor: 2500,
+          currency: 'USD',
+          occurredOn: '2026-10-05',
+          createdAt: '2026-10-05T00:00:00.000Z',
+          updatedAt: '2026-10-05T00:00:00.000Z',
+        },
+      ],
+      budgets: [],
+    };
+
+    const parsed = BackupDataSchema.safeParse(backupWithBrokenForeignKey);
+    expect(parsed.success).toBe(false);
+  });
 });
