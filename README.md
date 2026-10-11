@@ -4,7 +4,7 @@
   <img src="public/Main PocketFlow logo.png" alt="PocketFlow Logo" width="220" />
 </p>
 
-**Version:** 1.0.1
+**Version:** 1.0.2
 
 A local-first personal finance web application built for calm, private money tracking. Designed with native dual-currency isolation for US Dollars (USD) and Cambodian Riel (KHR), exact integer calculations, and offline IndexedDB browser storage.
 
